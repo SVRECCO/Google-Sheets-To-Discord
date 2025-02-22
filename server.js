@@ -6,6 +6,7 @@ import FormData from "form-data";
 import path from "path";
 import { pdf } from "pdf-to-img";
 import { fileURLToPath } from "url";
+import sharp from "sharp";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,8 +20,20 @@ app.post("/convert", upload.single("pdf"), async (req, res) => {
   }
 
   const webhookUrl = req.body.webhookUrl;
-  const document = await pdf(req.file.path, { scale: 3 });
+  const document = await pdf(req.file.path, { scale: 4 });
   const imageBuffer = await document.getPage(1);
+
+  const trimmedImage = await sharp(imageBuffer)
+   .trim({ threshold: 250 })
+   /*
+      .resize({
+        width: 1920,
+        height: 1080,
+        fit: 'contain',
+        background: { r: 255, g: 255, b: 255, alpha: 1 }
+      })
+        */
+   .toBuffer();
 
   const form = new FormData();
   form.append(
@@ -37,7 +50,7 @@ app.post("/convert", upload.single("pdf"), async (req, res) => {
    })
   );
 
-  form.append("file", imageBuffer, {
+  form.append("file", trimmedImage, {
    filename: "sheet.png",
    contentType: "image/png",
   });
@@ -52,7 +65,6 @@ app.post("/convert", upload.single("pdf"), async (req, res) => {
   }
 
   await fs.unlink(req.file.path).catch(console.error);
-
   res.json({ success: true, message: "Image sent to Discord successfully" });
  } catch (error) {
   console.error("Error:", error);
